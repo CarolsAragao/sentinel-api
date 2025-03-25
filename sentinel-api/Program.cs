@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using sentinel_api.Data;
 using sentinel_api.Models;
+using sentinel_api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +30,11 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
+builder.Services.AddScoped<SeedService>();
+
 var app = builder.Build();
+
+//await SeedService.SeedDataBase(app.Services);
 
 if (app.Environment.IsDevelopment())
 {

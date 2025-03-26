@@ -31,11 +31,40 @@ namespace sentinel_api.Controllers
         {
             var user = new User { UserName = model.Name, Email = model.Email };
             var result = await _userManager.CreateAsync(user, model.Password);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            // Gera um token de confirmação de e-mail
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+
+            // Cria o link de confirmação (modifique a URL conforme necessário)
+            var confirmationLink = $"{Request.Scheme}://{Request.Host}/api/auth/confirm-email?email={user.Email}&token={Uri.EscapeDataString(token)}";
+
+            // Enviar e-mail (aqui um serviço de e-mail real seria usado)
+            Console.WriteLine($"Clique no link para confirmar o e-mail: {confirmationLink}");
+
+            return Ok(new { message = "Usuário registrado! Verifique seu e-mail para confirmar a conta." });
+        }
+
+        [HttpGet("confirm-email")]
+        public async Task<IActionResult> ConfirmEmail([FromQuery] string email, [FromQuery] string token)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+            {
+                return BadRequest("Usuário não encontrado.");
+            }
+
+            var result = await _userManager.ConfirmEmailAsync(user, token);
             if (result.Succeeded)
             {
-                return Ok(new { message = "User registered successfully!" });
+                return Ok(new { message = "E-mail confirmado com sucesso!" });
             }
-            return BadRequest(result.Errors);
+
+            return BadRequest("Falha ao confirmar o e-mail. O token pode ter expirado.");
         }
 
         // Endpoint de Login
@@ -45,7 +74,12 @@ namespace sentinel_api.Controllers
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
             {
-                return Unauthorized();
+                return Unauthorized("Credenciais inválidas.");
+            }
+
+            if (!await _userManager.IsEmailConfirmedAsync(user))
+            {
+                return Unauthorized("Confirme seu e-mail antes de fazer login.");
             }
 
             var token = GenerateJwtToken(user);
